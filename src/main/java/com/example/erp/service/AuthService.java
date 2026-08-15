@@ -37,6 +37,16 @@ public class AuthService {
             throw new BadCredentialsException("Invalid email or password");
         }
 
+        if (user.getStatus() == com.example.erp.entity.ItemStatus.PENDING) {
+            logLoginHistory(user, httpRequest, "FAILED_UNVERIFIED");
+            throw new BadCredentialsException("Account is not verified yet. Please wait for admin approval.");
+        }
+
+        if (user.getStatus() == com.example.erp.entity.ItemStatus.INACTIVE) {
+            logLoginHistory(user, httpRequest, "FAILED_INACTIVE");
+            throw new BadCredentialsException("Account is deactivated.");
+        }
+
         logLoginHistory(user, httpRequest, "SUCCESS");
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
@@ -66,10 +76,13 @@ public class AuthService {
             throw new DuplicateResourceException("Email already in use: " + request.getEmail());
         }
 
+        boolean isFirstUser = userRepository.count() == 0;
+
         User user = User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
-                .role(request.getRole())
+                .role(isFirstUser ? com.example.erp.entity.Role.ADMIN : request.getRole())
+                .status(isFirstUser ? com.example.erp.entity.ItemStatus.ACTIVE : com.example.erp.entity.ItemStatus.PENDING)
                 .build();
 
         UserCredential credential = UserCredential.builder()
